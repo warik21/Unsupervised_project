@@ -10,6 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 import time
 from torch.utils.data import TensorDataset, DataLoader
+
 # Define the model
 class Autoencoder(nn.Module):
     def __init__(self, n_features):
