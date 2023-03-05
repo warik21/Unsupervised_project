@@ -30,7 +30,7 @@ class Classifier1(nn.Module):
         super(Classifier1, self).__init__()
 
         self.layers = nn.Sequential(
-            nn.Linear(10, 64),
+            nn.Linear(5, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU(),
@@ -50,7 +50,7 @@ class Classifier1(nn.Module):
         return x
 
     def train(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
-              criterion=nn.BCELoss(), num_epochs=50):
+              criterion=nn.BCELoss(), num_epochs=2):
         """
         Trains the specified self on the specified data and labels.
 

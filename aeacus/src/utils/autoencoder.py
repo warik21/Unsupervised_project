@@ -110,34 +110,62 @@ class Autoencoder(nn.Module):
             train_loss /= train_length
             train_losses.append(train_loss)
 
-            if (epoch + 1) % 20 == 0:
-                print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch + 1,
-                                                           num_epochs, train_loss / len(train_X)))
-
-            self.eval()
-            # Turn off gradients for validation, saves memory and computations
-            with torch.no_grad():
-                # Loop over the batches of validation data
-                for inputs, labels in test_data_loader:
-                    # Move the inputs and labels to the device
-                    inputs = inputs.to(device)
-                    labels = labels.to(device)
-
-                    # Forward pass through the model
-                    outputs = self.model(inputs)
-
-                    # Compute the validation loss
-                    loss = criterion(outputs, inputs)
-
-                    # Add the batch loss to the total epoch loss
-                    test_loss += loss.item()
-
-                val_losses.append(test_loss / test_length)
+            val_loss = self.eval(test_X, test_y)
+            val_losses.append(val_loss / test_length)
 
         end = time.time()
         training_time = end - start
         print('Epoch {}, Loss  {} - Val_loss: {}'.format(epoch, train_loss, test_loss))
         # Return the list of training losses
-        return train_losses, val_losses, training_time
+        return train_losses, val_losses, self, training_time
+
+    def eval(self, test_X, test_y, criterion=nn.MSELoss()):
+        """
+        Evaluates the specified model on the test set.
+
+        Args:
+            self: A PyTorch model to be evaluated.
+            test_X: A tensor representing the test data.
+            test_y: A tensor representing the test labels.
+            criterion: The loss function used for evaluation.
+
+        Returns:
+            The average loss on the test set.
+        """
+        # Check if a GPU is available and move the model to the device
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.to(device)
+
+        # Create a DataLoader for the test set
+        test_dataset = TensorDataset(test_X, test_y)
+        test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=True)
+
+        # Initialize the test loss
+        test_loss = 0.0
+
+        # Compute the length of the test set once to save runtime
+        test_length = len(test_data_loader.dataset)
+
+        # Turn off gradients for evaluation, saves memory and computations
+        with torch.no_grad():
+            # Loop over the batches of test data
+            for inputs, labels in test_data_loader:
+                # Move the inputs and labels to the device
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+
+                # Forward pass through the model
+                outputs = self(inputs)
+
+                # Compute the loss
+                loss = criterion(outputs, inputs)
+
+                # Add the batch loss to the total test loss
+                test_loss += loss.item()
+
+        # Compute the average test loss
+        test_loss /= test_length
+
+        return test_loss
 
 
