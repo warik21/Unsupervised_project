@@ -1,3 +1,5 @@
+from typing import List
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 import time
 from torch.utils.data import TensorDataset, DataLoader
+
+from aeacus.src.utils.evaluation import TrainingMetrics
 
 
 class Classifier(nn.Module):
@@ -29,7 +33,7 @@ class Classifier(nn.Module):
         """
         super(Classifier, self).__init__()
 
-        self.layers = nn.Sequential(
+        self.layers: nn.Sequential = nn.Sequential(
             nn.Linear(5, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
@@ -50,7 +54,7 @@ class Classifier(nn.Module):
         return x
 
     def train(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
-              criterion=nn.BCELoss(), num_epochs=2):
+              criterion=nn.BCELoss(), num_epochs=2) -> TrainingMetrics:
         """
         Trains the specified self on the specified data and labels.
 
@@ -73,16 +77,16 @@ class Classifier(nn.Module):
         self.to(device)
 
         # Create a DataLoader object to load the training data in batches
-        dataset = TensorDataset(train_data, train_labels)
-        data_loader = DataLoader(dataset, batch_size=64, shuffle=True)
+        dataset: TensorDataset = TensorDataset(train_data, train_labels)
+        data_loader: DataLoader = DataLoader(dataset, batch_size=64, shuffle=True)
 
-        val_dataset = TensorDataset(val_data, val_labels)
-        val_data_loader = DataLoader(dataset, batch_size=64, shuffle=True)
+        val_dataset: TensorDataset = TensorDataset(val_data, val_labels)
+        val_data_loader: DataLoader = DataLoader(dataset, batch_size=64, shuffle=True)
         # Initialize a list to store the training losses for each epoch
-        train_losses = []
-        train_accuracies = []
-        val_losses = []
-        val_accuracies = []
+        train_losses: List[float] = []
+        train_accuracies: List[float] = []
+        val_losses: List[float] = []
+        val_accuracies: List[float] = []
 
         # Loop over the specified number of epochs
         for epoch in tqdm(range(num_epochs)):
@@ -118,10 +122,10 @@ class Classifier(nn.Module):
                 train_loss += loss.item()
 
                 # Compute the accuracy
-                preds = torch.round(outputs)
+                predictions = torch.round(outputs)
 
                 # Update the number of correct predictions and total examples
-                num_correct_train += torch.sum(preds == labels).item()
+                num_correct_train += torch.sum(predictions == labels).item()
                 num_examples_train += labels.shape[0]
 
             # Compute the average epoch loss and add it to the list of losses
@@ -152,10 +156,10 @@ class Classifier(nn.Module):
                     val_loss += loss.item()
 
                     # Compute the predicted labels
-                    preds = torch.round(outputs)
+                    predictions = outputs
 
                     # Update the number of correct predictions and total examples
-                    num_correct_val += torch.sum(preds == labels).item()
+                    num_correct_val += torch.sum(predictions == labels).item()
                     num_examples_val += labels.shape[0]
             val_loss /= len(val_data_loader.dataset)
             val_losses.append(val_loss)
@@ -170,5 +174,6 @@ class Classifier(nn.Module):
             #                                                num_epochs, train_loss / len(train_data)))
 
         # Return the list of training losses
-        return train_losses, train_accuracies, val_losses, val_accuracies
-
+        return TrainingMetrics(train_losses=train_losses, train_accuracies=train_accuracies,
+                               val_losses=val_losses, val_accuracies=val_accuracies,
+                               predictions=predictions)
