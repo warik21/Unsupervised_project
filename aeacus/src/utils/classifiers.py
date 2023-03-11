@@ -81,7 +81,7 @@ class Classifier(nn.Module):
         data_loader: DataLoader = DataLoader(dataset, batch_size=64, shuffle=True)
 
         val_dataset: TensorDataset = TensorDataset(val_data, val_labels)
-        val_data_loader: DataLoader = DataLoader(dataset, batch_size=64, shuffle=True)
+        val_data_loader: DataLoader = DataLoader(val_dataset, batch_size=64, shuffle=True)
         # Initialize a list to store the training losses for each epoch
         train_losses: List[float] = []
         train_accuracies: List[float] = []
@@ -169,10 +169,8 @@ class Classifier(nn.Module):
             print('Epoch {}, Loss  {} - Accuracy: {} - Val_loss: {} - Val_accuracy: {}'.format(epoch, train_loss,
                                                                                                train_accuracy, val_loss,
                                                                                                val_accuracy))
-            # if (epoch + 1) % 20 == 0:
-            #     print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch + 1,
-            #                                                num_epochs, train_loss / len(train_data)))
-
+        val_data = val_data.to(device)
+        predictions = self(encoder(val_data))
         # Return the list of training losses
         return TrainingMetrics(train_losses=train_losses, train_accuracies=train_accuracies,
                                val_losses=val_losses, val_accuracies=val_accuracies,

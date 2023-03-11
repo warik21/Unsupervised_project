@@ -56,6 +56,7 @@ def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_s
     added_samples.columns = original_dataframe.columns
     added_y: np.array = np.ones(len(added_samples))
     enriched_data: pd.DataFrame = pd.concat([original_dataframe, added_samples])
+    enriched_data.reset_index(drop=True, inplace=True)
     enriched_y: np.array = np.concatenate((original_y, added_y), axis=0)
 
     return DataHandler(enriched_data, enriched_y)

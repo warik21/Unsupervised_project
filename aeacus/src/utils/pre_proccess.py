@@ -14,8 +14,10 @@ def prepare_data(df):
         A tuple containing the preprocessed training data and labels.
     """
     df = df.fillna(1)
-    x = df[df.columns[1:30]].to_numpy()
-    y = df[df.columns[30]].to_numpy()
+    if 'Time' in df.columns:
+        df = df.drop('Time', axis=1)
+    x = df[df.columns[:len(df.columns) - 1]].to_numpy()
+    y = df[df.columns[len(df.columns) - 1]].to_numpy()
 
     train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=0.2)
 

@@ -2,6 +2,8 @@ import time
 import torch.optim as optim
 import pandas as pd
 import numpy as np
+import  matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_curve, auc, average_precision_score
 from typing import Tuple
 
 from aeacus.src.utils.autoencoder import Autoencoder
@@ -28,19 +30,38 @@ if __name__ == '__main__':
         auto_encoder.train(train_X, train_y, test_X, test_y, optimizer)
 
     # Generating syntactic data
-    n_samples = 27000
+    n_samples = int(len(data_frame.index)/2)
     enriched_data: DataHandler = enrich_data(data_frame, auto_encoder, n_samples)
 
     encoder = trained_model.encoder
 
     # Naive classifier training pipeline
-    original_classifier: Classifier = Classifier()
-    original_optimizer: optim.Adam = optim.Adam(original_classifier.parameters(), lr=0.001)
+    # original_classifier: Classifier = Classifier()
+    # original_optimizer: optim.Adam = optim.Adam(original_classifier.parameters(), lr=0.001)
+#
+    # original_training_metrics: TrainingMetrics = \
+    #     original_classifier.train(encoder, train_X, train_y, test_X, test_y, original_optimizer)
 
-    original_training_metrics: TrainingMetrics = \
-        original_classifier.train(encoder, train_X, train_y, test_X, test_y, original_optimizer)
+
+    enriched_classifier: Classifier = Classifier()
+    enriched_optimizer: optim.Adam = optim.Adam(enriched_classifier.parameters(), lr=0.001)
+    enriched_data_frame: pd.DataFrame = pd.concat([enriched_data.X, pd.DataFrame(np.array(enriched_data.y).reshape(-1,1))], axis=1)
+    enriched_train_X, enriched_test_X, enriched_train_y, enriched_test_y = prepare_data(enriched_data_frame)
+    enriched_training_metrics: TrainingMetrics = \
+        enriched_classifier.train(encoder, enriched_train_X, enriched_train_y, test_X, test_y, enriched_optimizer)
 
 
+    cpu_tensor_list = [tensor.cpu() for tensor in enriched_training_metrics.predictions]
+    y_pred = np.stack([tensor.detach().numpy() for tensor in cpu_tensor_list])
+    precision, recall, _ = precision_recall_curve(test_y, y_pred)
+    pr_auc = auc(recall, precision)
+    prauc_score = average_precision_score(test_y, y_pred, average='macro')
+    plt.plot(recall, precision, label='PRAUC = %0.2f' % pr_auc)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall curve')
+    plt.legend(loc='lower left')
+    plt.show()
     print('hello world')
     # og_classifier_losses, og_classifier_accuracies, og_eval_losses, og_eval_accuracies, og_classifier_time = \
 
