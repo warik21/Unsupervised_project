@@ -12,7 +12,7 @@ import time
 from torch.utils.data import TensorDataset, DataLoader
 
 
-class Classifier1(nn.Module):
+class Classifier(nn.Module):
     """
     A PyTorch module class that defines a self neural network.
 
@@ -27,7 +27,7 @@ class Classifier1(nn.Module):
 
         Initializes the layers of the network using the nn.Sequential container.
         """
-        super(Classifier1, self).__init__()
+        super(Classifier, self).__init__()
 
         self.layers = nn.Sequential(
             nn.Linear(5, 64),
@@ -170,5 +170,5 @@ class Classifier1(nn.Module):
             #                                                num_epochs, train_loss / len(train_data)))
 
         # Return the list of training losses
-        return train_losses, train_accuracies, val_losses, val_accuracies, self
+        return train_losses, train_accuracies, val_losses, val_accuracies
 

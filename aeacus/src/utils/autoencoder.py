@@ -113,9 +113,11 @@ class Autoencoder(nn.Module):
             val_loss = self.eval(test_X, test_y)
             val_losses.append(val_loss / test_length)
 
+            print('Epoch {}, Loss  {} - Val_loss: {}'.format(epoch, train_loss, test_loss))
+
         end = time.time()
         training_time = end - start
-        print('Epoch {}, Loss  {} - Val_loss: {}'.format(epoch, train_loss, test_loss))
+
         # Return the list of training losses
         return train_losses, val_losses, self, training_time
 
