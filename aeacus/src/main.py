@@ -4,14 +4,15 @@ import pandas as pd
 import numpy as np
 import  matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, auc, average_precision_score
+from imblearn.over_sampling import SMOTE
 from typing import Tuple
 
 from aeacus.src.utils.autoencoder import Autoencoder
-from aeacus.src.utils.data_generator import generate_augmented_samples, enrich_data, DataHandler
+from aeacus.src.utils.data_generator import generate_augmented_samples, enrich_data, DataHandler, enrich_data_smote
 from aeacus.src.utils.evaluation import TrainingMetrics
 from aeacus.src.utils.helpers import visualize, visualize_tsne
 from aeacus.src.utils.pre_proccess import prepare_data
-from aeacus.src.utils.classifiers import Classifier
+from aeacus.src.utils.classifiers import Classifier, SVDD
 
 
 if __name__ == '__main__':
@@ -33,15 +34,16 @@ if __name__ == '__main__':
     n_samples = int(len(data_frame.index)/2)
     enriched_data: DataHandler = enrich_data(data_frame, auto_encoder, n_samples)
 
+    ######## trying to enrich data with SMOTE, as used in the paper
+    smote_enriched_data: DataHandler = enrich_data_smote(data_frame, n_samples)
+    # TODO : Check results with SMOTE re-sampler vs our data enriching. Option - use another re-sampler
+    # train_X_smote, train_y_smote = sm.fit_resample(train_X, train_y)
+
     encoder = trained_model.encoder
 
-    # Naive classifier training pipeline
-    # original_classifier: Classifier = Classifier()
-    # original_optimizer: optim.Adam = optim.Adam(original_classifier.parameters(), lr=0.001)
-#
-    # original_training_metrics: TrainingMetrics = \
-    #     original_classifier.train(encoder, train_X, train_y, test_X, test_y, original_optimizer)
-
+    # TODO : Train the SVDD only on the good transactions instead of both
+    test_classifier = SVDD(nu=0.1, input_dim=29)
+    test_classifier.train(train_X)
 
     enriched_classifier: Classifier = Classifier()
     enriched_optimizer: optim.Adam = optim.Adam(enriched_classifier.parameters(), lr=0.001)
@@ -63,16 +65,7 @@ if __name__ == '__main__':
     plt.legend(loc='lower left')
     plt.show()
     print('hello world')
-    # og_classifier_losses, og_classifier_accuracies, og_eval_losses, og_eval_accuracies, og_classifier_time = \
 
-    # aug_data_path = r'C:\Users\eriki\Documents\school\Unsupervised_learning\big_files\rand.csv'
-    # aug_data_frame = pd.read_csv(aug_data_path)
-    # aug_train_X, aug_test_X, aug_train_y, aug_test_y = prepare_data(aug_data_frame)
-    # aug_classifier = Classifier()
-    # aug_optimizer = optim.Adam(aug_classifier.parameters(), lr=0.001)
-    # aug_classifier_losses, aug_classifier_accuracies, aug_eval_losses, aug_eval_accuracies, aug_classifier_time = \
-    #     aug_classifier.train(encoder, aug_train_X, aug_train_y, test_X, test_y, aug_optimizer)
-    #
     # end = time.time()
     # seconds = end - start
 

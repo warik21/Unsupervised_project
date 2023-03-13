@@ -1,6 +1,8 @@
+import numpy
 import numpy as np
 import pandas as pd
 import torch
+from imblearn.over_sampling import SMOTE
 
 from aeacus.src.utils.autoencoder import Autoencoder
 
@@ -60,3 +62,13 @@ def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_s
     enriched_y: np.array = np.concatenate((original_y, added_y), axis=0)
 
     return DataHandler(enriched_data, enriched_y)
+
+
+def enrich_data_smote(original_dataframe: torch.tensor, n_samples: int) -> DataHandler:
+    original_dataframe: numpy.ndarray = original_dataframe.drop('Time', axis=1)
+    original_X: numpy.ndarray = original_dataframe.drop('Class', axis=1)
+    original_y: numpy.ndarray = original_dataframe[original_dataframe.columns[29]].to_numpy()
+    sm = SMOTE()
+    train_X_smote, train_y_smote = sm.fit_resample(original_X, original_y)
+
+    return DataHandler(train_X_smote, train_y_smote)

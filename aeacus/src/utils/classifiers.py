@@ -1,15 +1,13 @@
 from typing import List
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn import datasets, decomposition, preprocessing
-from sklearn.model_selection import train_test_split
-from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
+import math
+import os
 import time
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -175,3 +173,121 @@ class Classifier(nn.Module):
         return TrainingMetrics(train_losses=train_losses, train_accuracies=train_accuracies,
                                val_losses=val_losses, val_accuracies=val_accuracies,
                                predictions=predictions)
+
+
+class SVDD(nn.Module):
+    def __init__(self, input_dim, nu=0.1):
+        super(SVDD, self).__init__()
+        self.input_dim: int = input_dim
+        self.weight_path: str = 'weight/SVDD.pth'
+        self.center: np.array = None
+        self.nu: float = nu
+        self.layers = nn.Sequential(
+            nn.Linear(self.input_dim, 22),
+            nn.LeakyReLU(),
+            nn.Linear(22, 15),
+            nn.LeakyReLU(),
+            nn.Linear(15, 10),
+            nn.LeakyReLU(),
+            nn.Linear(10, 5),
+            nn.LeakyReLU(),
+            nn.Linear(5, 1)
+        )
+        self.loss_mse = nn.MSELoss()
+        self.optimizer: optim.Adam = optim.Adam(self.parameters(), lr=0.001, eps=1)
+
+    def forward(self, X):
+        out: float = self.layers(X)
+        return out
+
+    def calc_cost(self, X):
+        with torch.no_grad():
+            dist = torch.sum((X - self.center)**2, dim=1)
+            score = dist - self.radius**2
+            cost = torch.mean(torch.max(torch.tensor([torch.zeros_like(score)], dtype=torch.float32), score))
+        return cost.item()
+
+    def predict(self, X, threshold=0.1):
+        with torch.no_grad():
+            logits = self.forward(X)
+            dist = (logits - self.center).pow(2).sum(dim=1)
+            pred = dist.le(threshold).float()
+        return pred.cpu().numpy()
+
+    def train(self, X, num_epochs=20, batch_size=64):
+        # Check if a GPU is available and move the model to the device
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.to(device)
+        X = X.to(device)
+        # Normalize the data
+        X_mean = torch.mean(X, dim=0)
+        X_std = torch.std(X, dim=0)
+        X = (X - X_mean) / X_std
+        # Create a DataLoader object to load the data in batches
+        dataset = torch.utils.data.TensorDataset(X)
+
+
+        #initiate a DataLoader
+        data_loader: DataLoader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        # Initialize the center of the hypersphere to the mean of the data
+        self.center = X.mean(dim=0, keepdim=True).to(device)
+        # Compute the radius of the hypersphere based on the target nu value
+        num_outliers = math.ceil(self.nu * X.shape[0])
+        distances = (self.center - X).pow(2).sum(dim=1)
+        radius, _ = torch.topk(distances, num_outliers)
+        radius = radius[-1].sqrt()
+
+        # Loop over the specified number of epochs
+        for epoch in range(num_epochs):
+            # Initialize the training loss for the current epoch
+            train_loss = 0.0
+
+            # Loop over the batches of training data
+            for inputs in data_loader:
+                inputs = inputs[0].to(device)
+
+                # Zero the gradients
+                self.optimizer.zero_grad()
+
+                # Forward pass through the model
+                logits = self.forward(inputs)
+
+                # Compute the distance to the center of the hypersphere
+                dist = (logits - self.center).pow(2).sum(dim=1)
+
+                # Compute the loss
+                loss = torch.mean(torch.where(dist < radius ** 2, dist, radius ** 2))
+
+                # Backward pass through the model and optimizer step
+                loss.backward()
+                self.optimizer.step()
+
+                # Add the batch loss to the total epoch loss
+                train_loss += loss.item()
+
+                # Compute the average epoch loss and print it to the console
+            train_loss /= len(data_loader.dataset)
+            print(f"Epoch {epoch + 1}/{num_epochs}: train_loss={train_loss}")
+
+        # Update the center of the hypersphere
+        with torch.no_grad():
+            self.center = X[self.predict(X) > 0].mean(dim=0, keepdim=True).to(device)
+
+        # Save the model weights
+        # TODO: implement the save method correctly.
+        self.save_weight()
+
+        return
+
+    def load_weight(self):
+        if os.path.exists(self.weight_path):
+            state_dict = torch.load(self.weight_path)
+            self.load_state_dict(state_dict)
+            print("found saved weight.")
+        else:
+            print("no saved weight found.")
+
+    def save_weight(self):
+        # torch.save(self.state_dict(), self.weight_path)
+        print("weight saved.")
