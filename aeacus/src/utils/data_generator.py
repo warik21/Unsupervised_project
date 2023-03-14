@@ -7,15 +7,18 @@ from imblearn.over_sampling import SMOTE
 from aeacus.src.utils.autoencoder import Autoencoder
 
 
+class DataHandler:
+    def __init__(self, X: pd.DataFrame, y: np.array):
+        self.X: pd.DataFrame = X
+        self.y: np.array = y
+
 def generate_augmented_samples(fraud_df: pd.DataFrame, model: Autoencoder, num_samples: int) -> pd.DataFrame:
     """
     Trains the specified self on the specified data and labels.
-
     Args:
         fraud_df: The dataframe containing the original data
         model: The vae model
         num_samples: The number of samples we want to generate
-
     Returns:
         A dataframe with all the new generated samples
     """
@@ -42,11 +45,6 @@ def generate_augmented_samples(fraud_df: pd.DataFrame, model: Autoencoder, num_s
     df_augmented = pd.DataFrame(new_samples)
     return df_augmented
 
-class DataHandler:
-    def __init__(self, X: pd.DataFrame, y: np.array):
-        self.X: pd.DataFrame = X
-        self.y: np.array = y
-
 def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_samples: int) -> DataHandler:
     original_dataframe = original_dataframe.drop('Time', axis=1)
     fraud_df_subset = original_dataframe[original_dataframe['Class'] == 1].drop('Class', axis=1)
@@ -62,7 +60,7 @@ def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_s
 
     return DataHandler(enriched_data, enriched_y)
 
-def enrich_data_smote(original_dataframe: torch.tensor, n_samples: int) -> DataHandler:
+def enrich_data_smote(original_dataframe: torch.tensor) -> DataHandler:
     original_dataframe: numpy.ndarray = original_dataframe.drop('Time', axis=1)
     original_X: numpy.ndarray = original_dataframe.drop('Class', axis=1)
     original_y: numpy.ndarray = original_dataframe[original_dataframe.columns[29]].to_numpy()

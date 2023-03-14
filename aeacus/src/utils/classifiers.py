@@ -1,14 +1,12 @@
 from typing import List
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 import math
 import os
-import time
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import precision_recall_curve, auc, average_precision_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -25,14 +23,15 @@ class Classifier(nn.Module):
     is a tensor of shape (batch_size, 5) and the output is a tensor of shape (batch_size, 1).
     """
 
-    def __init__(self):
+    def __init__(self, enrichment: str):
         """
         Constructor for the Classifier class.
 
         Initializes the layers of the network using the nn.Sequential container.
         """
         super(Classifier, self).__init__()
-
+        self.current_enrichment = enrichment + '.pth'
+        self.weight_path: str = r'C:\Users\eriki\Documents\school\Unsupervised_learning\Final_Project\aeacus\weights'
         self.layers: nn.Sequential = nn.Sequential(
             nn.Linear(5, 64),
             nn.ReLU(),
@@ -53,8 +52,8 @@ class Classifier(nn.Module):
         x = self.layers(x)
         return x
 
-    def train(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
-              criterion=nn.BCELoss(), num_epochs=20) -> TrainingMetrics:
+    def train_model(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
+              criterion=nn.BCELoss(), num_epochs=2) -> TrainingMetrics:
         """
         Trains the specified self on the specified data and labels.
 
@@ -171,6 +170,9 @@ class Classifier(nn.Module):
                                                                                                val_accuracy))
         val_data = val_data.to(device)
         predictions = self(encoder(val_data))
+
+        # Save the model weights
+        self.save_weight()
         # Return the list of training losses
         return TrainingMetrics(train_losses=train_losses, train_accuracies=train_accuracies,
                                val_losses=val_losses, val_accuracies=val_accuracies,
@@ -190,11 +192,25 @@ class Classifier(nn.Module):
         return ModelEvaluators(
             accuracy=acc, precision=precision, recall=recall, f1=f1)
 
+    def load_weight(self):
+        if os.path.exists(os.path.join(self.weight_path, self.current_enrichment)):
+            state_dict = torch.load(os.path.join(self.weight_path, self.current_enrichment))
+            self.load_state_dict(state_dict)
+            print("found saved weight.")
+        else:
+            print("no saved weight found.")
+
+    def save_weight(self):
+        torch.save(self.state_dict(), os.path.join(self.weight_path, self.current_enrichment))
+        print("weight saved.")
+
+
+
 class SVDD(nn.Module):
     def __init__(self, input_dim, nu=0.1):
         super(SVDD, self).__init__()
         self.input_dim: int = input_dim
-        self.weight_path: str = 'weight/SVDD.pth'
+        self.weight_path: str = r'C:\Users\eriki\Documents\school\Unsupervised_learning\Final_Project\aeacus\weights\SVDD.pth'
         self.center: np.array = None
         self.nu: float = nu
         self.layers = nn.Sequential(
@@ -215,13 +231,6 @@ class SVDD(nn.Module):
         out: float = self.layers(X)
         return out
 
-    def calc_cost(self, X):
-        with torch.no_grad():
-            dist = torch.sum((X - self.center)**2, dim=1)
-            score = dist - self.radius**2
-            cost = torch.mean(torch.max(torch.tensor([torch.zeros_like(score)], dtype=torch.float32), score))
-        return cost.item()
-
     def predict(self, X, threshold=0.1):
         with torch.no_grad():
             logits = self.forward(X)
@@ -229,7 +238,7 @@ class SVDD(nn.Module):
             pred = dist.le(threshold).float()
         return pred.cpu().numpy()
 
-    def train(self, X, num_epochs=20, batch_size=128):
+    def train(self, X, num_epochs=2, batch_size=128):
         # Check if a GPU is available and move the model to the device
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(device)
@@ -290,9 +299,7 @@ class SVDD(nn.Module):
             self.center = X[self.predict(X) > 0].mean(dim=0, keepdim=True).to(device)
 
         # Save the model weights
-        # TODO: implement the save method correctly.
         self.save_weight()
-
         return
 
     def eval_model(self, data_frame, test_X_no_fraud, test_y_no_fraud) -> ModelEvaluators:
@@ -332,5 +339,5 @@ class SVDD(nn.Module):
             print("no saved weight found.")
 
     def save_weight(self):
-        # torch.save(self.state_dict(), self.weight_path)
+        torch.save(self.state_dict(), self.weight_path)
         print("weight saved.")
