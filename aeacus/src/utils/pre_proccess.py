@@ -3,12 +3,13 @@ from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 
 
-def prepare_data(df):
+def prepare_data(df, train_ratio = 0.8):
     """
     Prepares the data for training the model.
 
     Args:
         df: The dataframe
+        train_ratio: the ratio of the training set
 
     Returns:
         A tuple containing the preprocessed training data and labels.

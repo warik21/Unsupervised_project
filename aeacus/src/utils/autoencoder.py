@@ -41,7 +41,7 @@ class Autoencoder(nn.Module):
         x = self.decoder(x)
         return x
 
-    def train(self, train_X, train_y, test_X, test_y, optimizer, criterion=nn.MSELoss(), num_epochs=2):
+    def train(self, train_X, train_y, test_X, test_y, optimizer, criterion=nn.MSELoss(), num_epochs=20):
         """
         Trains the specified model.
 
@@ -65,10 +65,10 @@ class Autoencoder(nn.Module):
 
         # Create Dataloaders for both the train and test sets
         train_dataset = TensorDataset(train_X, train_y)
-        train_data_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+        train_data_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
 
         test_dataset = TensorDataset(test_X, test_y)
-        test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=True)
+        test_data_loader = DataLoader(test_dataset, batch_size=128, shuffle=True)
 
         # Initialize a list to store the training losses for each epoch
         train_losses = []

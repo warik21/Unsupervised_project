@@ -47,7 +47,6 @@ class DataHandler:
         self.X: pd.DataFrame = X
         self.y: np.array = y
 
-
 def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_samples: int) -> DataHandler:
     original_dataframe = original_dataframe.drop('Time', axis=1)
     fraud_df_subset = original_dataframe[original_dataframe['Class'] == 1].drop('Class', axis=1)
@@ -63,7 +62,6 @@ def enrich_data(original_dataframe: pd.DataFrame, auto_encoder: Autoencoder, n_s
 
     return DataHandler(enriched_data, enriched_y)
 
-
 def enrich_data_smote(original_dataframe: torch.tensor, n_samples: int) -> DataHandler:
     original_dataframe: numpy.ndarray = original_dataframe.drop('Time', axis=1)
     original_X: numpy.ndarray = original_dataframe.drop('Class', axis=1)
@@ -72,3 +70,9 @@ def enrich_data_smote(original_dataframe: torch.tensor, n_samples: int) -> DataH
     train_X_smote, train_y_smote = sm.fit_resample(original_X, original_y)
 
     return DataHandler(train_X_smote, train_y_smote)
+
+def run_through_vae(X: torch.tensor, autoencoder: Autoencoder, device: torch.device):
+    returned_x = X.to(device)
+    returned_x = autoencoder(returned_x)
+    returned_x = returned_x.detach().cpu()
+    return returned_x

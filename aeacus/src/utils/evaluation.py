@@ -14,6 +14,11 @@ class TrainingMetrics(BaseModel):
     val_accuracies: List[float]
     predictions: Any
 
+class ModelEvaluators(BaseModel):
+    accuracy: float
+    precision: float
+    recall: float
+    f1: float
 
 # precision, recall, _ = precision_recall_curve(y_true, y_score)
 # prauc_score = average_precision_score(y_true, y_score, average='macro')

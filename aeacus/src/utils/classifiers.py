@@ -10,8 +10,10 @@ import math
 import os
 import time
 from torch.utils.data import TensorDataset, DataLoader
+from sklearn.metrics import precision_recall_curve, auc, average_precision_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-from aeacus.src.utils.evaluation import TrainingMetrics
+from aeacus.src.utils.evaluation import TrainingMetrics, ModelEvaluators
 
 
 class Classifier(nn.Module):
@@ -52,7 +54,7 @@ class Classifier(nn.Module):
         return x
 
     def train(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
-              criterion=nn.BCELoss(), num_epochs=2) -> TrainingMetrics:
+              criterion=nn.BCELoss(), num_epochs=20) -> TrainingMetrics:
         """
         Trains the specified self on the specified data and labels.
 
@@ -174,6 +176,19 @@ class Classifier(nn.Module):
                                val_losses=val_losses, val_accuracies=val_accuracies,
                                predictions=predictions)
 
+    def eval_model(self, auto_encoder, enriched_X, enriched_y) -> ModelEvaluators:
+        enriched_X = enriched_X.to('cuda:0')
+        y_pred = self(auto_encoder.encoder(enriched_X))
+        y_pred = y_pred.detach().cpu()
+        y_pred = y_pred.round()
+        y_true = enriched_y
+        acc = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred)
+
+        return ModelEvaluators(
+            accuracy=acc, precision=precision, recall=recall, f1=f1)
 
 class SVDD(nn.Module):
     def __init__(self, input_dim, nu=0.1):
@@ -214,7 +229,7 @@ class SVDD(nn.Module):
             pred = dist.le(threshold).float()
         return pred.cpu().numpy()
 
-    def train(self, X, num_epochs=20, batch_size=64):
+    def train(self, X, num_epochs=20, batch_size=128):
         # Check if a GPU is available and move the model to the device
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(device)
@@ -279,6 +294,34 @@ class SVDD(nn.Module):
         self.save_weight()
 
         return
+
+    def eval_model(self, data_frame, test_X_no_fraud, test_y_no_fraud) -> ModelEvaluators:
+        data_frame_fraud_samples: pd.DataFrame = data_frame[data_frame['Class'] == 1]
+
+        data_frame_fraud_samples = data_frame_fraud_samples.drop(['Time'], axis=1)
+        data_frame_fraud_samples.columns = range(30)
+        df_test_ae_svdd_X_without_fraud = pd.DataFrame(test_X_no_fraud.numpy())
+        df_test_ae_svdd_y_without_fraud = pd.DataFrame(test_y_no_fraud.numpy())
+        df_without_fraud = pd.concat([df_test_ae_svdd_X_without_fraud, df_test_ae_svdd_y_without_fraud], axis=1,
+                                     ignore_index=True)
+        test_df = pd.concat([df_without_fraud, data_frame_fraud_samples], ignore_index=True)
+
+        X_test = test_df.iloc[:, :-1]
+        X_test = torch.tensor(X_test.values, dtype=torch.float32)
+        X_mean = torch.mean(X_test, dim=0)
+        X_std = torch.std(X_test, dim=0)
+        X_test = (X_test - X_mean) / X_std
+
+        # make predictions on the test data
+        X_test = X_test.to('cuda:0')
+        y_pred = self.predict(X_test, threshold=0.1)
+        y_true = test_df.iloc[:, -1].values
+        acc = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred)
+
+        return ModelEvaluators(accuracy = acc, precision = precision, recall = recall, f1 = f1)
 
     def load_weight(self):
         if os.path.exists(self.weight_path):
