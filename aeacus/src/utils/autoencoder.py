@@ -34,7 +34,7 @@ class Autoencoder(nn.Module):
         x = self.decoder(x)
         return x
 
-    def train_model(self, train_X, train_y, test_X, test_y, optimizer, criterion=nn.MSELoss(), num_epochs=2):
+    def train_model(self, train_X, train_y, test_X, test_y, optimizer, criterion=nn.MSELoss(), num_epochs=50):
         """
         Trains the specified model.
 

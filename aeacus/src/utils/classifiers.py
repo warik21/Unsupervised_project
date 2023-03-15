@@ -53,7 +53,7 @@ class Classifier(nn.Module):
         return x
 
     def train_model(self, encoder, train_data, train_labels, val_data, val_labels, optimizer,
-              criterion=nn.BCELoss(), num_epochs=2) -> TrainingMetrics:
+              criterion=nn.BCELoss(), num_epochs=50) -> TrainingMetrics:
         """
         Trains the specified self on the specified data and labels.
 
@@ -133,43 +133,7 @@ class Classifier(nn.Module):
             train_accuracy = num_correct_train / num_examples_train
             train_accuracies.append(train_accuracy)
 
-            # Loop over the batches of the validation
-            num_correct_val = 0
-            num_examples_val = 0
-
-            # Loop over the batches of Validation data
-            with torch.no_grad():
-                for inputs, labels in val_data_loader:
-                    inputs = inputs.to(device)
-                    latent_vectors = encoder(inputs)
-                    # Move the inputs and labels to the device
-                    latent_vectors = latent_vectors.to(device)
-                    labels = labels.to(device)
-
-                    # Forward pass through the self
-                    outputs = self(latent_vectors)
-                    outputs = outputs.squeeze()
-
-                    # Add the batch loss to the total epoch loss
-                    loss = criterion(outputs, labels)
-                    val_loss += loss.item()
-
-                    # Compute the predicted labels
-                    predictions = outputs
-
-                    # Update the number of correct predictions and total examples
-                    num_correct_val += torch.sum(predictions == labels).item()
-                    num_examples_val += labels.shape[0]
-            val_loss /= len(val_data_loader.dataset)
-            val_losses.append(val_loss)
-            val_accuracy = num_correct_val / num_examples_val
-            val_accuracies.append(val_accuracy)
-
-            print('Epoch {}, Loss  {} - Accuracy: {} - Val_loss: {} - Val_accuracy: {}'.format(epoch, train_loss,
-                                                                                               train_accuracy, val_loss,
-                                                                                               val_accuracy))
-        val_data = val_data.to(device)
-        predictions = self(encoder(val_data))
+            print('Epoch {}, Loss  {} - Accuracy: {}'.format(epoch, train_loss, train_accuracy))
 
         # Save the model weights
         self.save_weight()
@@ -207,12 +171,13 @@ class Classifier(nn.Module):
 
 
 class SVDD(nn.Module):
-    def __init__(self, input_dim, nu=0.1):
+    def __init__(self, input_dim, nu=0.1, sigma=0.1):
         super(SVDD, self).__init__()
         self.input_dim: int = input_dim
         self.weight_path: str = r'C:\Users\eriki\Documents\school\Unsupervised_learning\Final_Project\aeacus\weights\SVDD.pth'
         self.center: np.array = None
         self.nu: float = nu
+        self.sigma: float = sigma
         self.layers = nn.Sequential(
             nn.Linear(self.input_dim, 22),
             nn.LeakyReLU(),
@@ -238,7 +203,7 @@ class SVDD(nn.Module):
             pred = dist.le(threshold).float()
         return pred.cpu().numpy()
 
-    def train(self, X, num_epochs=2, batch_size=128):
+    def train(self, X, num_epochs=50, batch_size=128):
         # Check if a GPU is available and move the model to the device
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(device)
@@ -300,7 +265,7 @@ class SVDD(nn.Module):
 
         # Save the model weights
         self.save_weight()
-        return
+        return self
 
     def eval_model(self, data_frame, test_X_no_fraud, test_y_no_fraud) -> ModelEvaluators:
         data_frame_fraud_samples: pd.DataFrame = data_frame[data_frame['Class'] == 1]

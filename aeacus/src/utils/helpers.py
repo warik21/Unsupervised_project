@@ -124,12 +124,12 @@ def suggested_approach(data_frame: pd.DataFrame, auto_encoder: Autoencoder, devi
     train_ae_svdd_X, test_ae_svdd_X_without_fraud, train_ae_svdd_y, test_ae_svdd_y_without_fraud = prepare_data(data_frame_good_samples)
     train_ae_svdd_X = run_through_vae(train_ae_svdd_X, auto_encoder, device)
     test_classifier = SVDD(nu=0.1, input_dim=29)
-    test_classifier.train(train_ae_svdd_X)
+    test_classifier = test_classifier.train(train_ae_svdd_X)
     test_ae_svdd_X_without_fraud = run_through_vae(test_ae_svdd_X_without_fraud, auto_encoder, device)
 
     ae_svdd_model_params = test_classifier.eval_model(data_frame, test_ae_svdd_X_without_fraud, test_ae_svdd_y_without_fraud)
 
-    return ae_svdd_model_params
+    return test_classifier, ae_svdd_model_params
 
 def latent_enrichment_approach(data_frame: pd.DataFrame, auto_encoder: Autoencoder,
                                n_samples: int, test_X: torch.tensor, test_y: torch.tensor):
@@ -147,8 +147,26 @@ def latent_enrichment_approach(data_frame: pd.DataFrame, auto_encoder: Autoencod
     # enriched_test_X = run_through_vae(enriched_test_X, auto_encoder, device)
     enriched_classifier_params = enriched_classifier.eval_model(auto_encoder, enriched_test_X, enriched_test_y)
 
-    return enriched_classifier_params
+    return enriched_classifier, enriched_classifier_params
 
+def latent_enrichment_approach_with_vae(data_frame: pd.DataFrame, auto_encoder: Autoencoder,
+                               n_samples: int, test_X: torch.tensor, test_y: torch.tensor):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    enriched_data: DataHandler = enrich_data(data_frame, auto_encoder, n_samples)
+    enriched_classifier: Classifier = Classifier('latent_with_vae')
+    enriched_optimizer: optim.Adam = optim.Adam(enriched_classifier.parameters(), lr=0.001)
+    enriched_data_frame: pd.DataFrame = pd.concat(
+        [enriched_data.X, pd.DataFrame(np.array(enriched_data.y).reshape(-1, 1))], axis=1)
+    enriched_train_X, enriched_test_X, enriched_train_y, enriched_test_y = prepare_data(enriched_data_frame)
+    enriched_train_X = run_through_vae(enriched_train_X, auto_encoder, device)
+    enriched_training_metrics: TrainingMetrics = \
+        enriched_classifier.train_model(auto_encoder.encoder, enriched_train_X, enriched_train_y,
+                                        test_X, test_y, enriched_optimizer)
+
+    enriched_test_X = run_through_vae(enriched_test_X, auto_encoder, device)
+    enriched_classifier_params = enriched_classifier.eval_model(auto_encoder, enriched_test_X, enriched_test_y)
+
+    return enriched_classifier, enriched_classifier_params
 def smote_enrichment_approach(data_frame: pd.DataFrame, auto_encoder: Autoencoder,
                                test_X: torch.tensor, test_y: torch.tensor):
     enriched_data_smote: DataHandler = enrich_data_smote(data_frame)
@@ -163,5 +181,21 @@ def smote_enrichment_approach(data_frame: pd.DataFrame, auto_encoder: Autoencode
 
     enriched_smote_params = enriched_smote_classifier.eval_model(auto_encoder, enriched_smote_test_X,
                                                                  enriched_smote_test_y)
-    return enriched_smote_params
+    return enriched_smote_classifier, enriched_smote_params
 
+def smote_enrichment_approach_with_vae(data_frame: pd.DataFrame, auto_encoder: Autoencoder,
+                               test_X: torch.tensor, test_y: torch.tensor):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    enriched_data_smote: DataHandler = enrich_data_smote(data_frame)
+    enriched_smote_classifier = Classifier('smote_with_vae')
+    enriched_smote_optimizer: optim.Adam = optim.Adam(enriched_smote_classifier.parameters(), lr=0.001)
+    enriched_data_frame: pd.DataFrame = pd.concat([enriched_data_smote.X, pd.DataFrame(np.array(enriched_data_smote.y).reshape(-1,1))], axis=1)
+    enriched_smote_train_X, enriched_smote_test_X, enriched_smote_train_y, enriched_smote_test_y = prepare_data(enriched_data_frame)
+    enriched_smote_train_X = run_through_vae(enriched_smote_train_X, auto_encoder, device)
+    enriched_smote_training_metrics: TrainingMetrics = \
+        enriched_smote_classifier.train_model(auto_encoder.encoder, enriched_smote_train_X, enriched_smote_train_y,
+                                              test_X, test_y, enriched_smote_optimizer)
+
+    enriched_smote_params = enriched_smote_classifier.eval_model(auto_encoder, enriched_smote_test_X,
+                                                                 enriched_smote_test_y)
+    return enriched_smote_classifier, enriched_smote_params

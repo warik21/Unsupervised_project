@@ -14,3 +14,5 @@ class ModelEvaluators(BaseModel):
     precision: float
     recall: float
     f1: float
+    def print_self(self):
+        print('Accuracy: {} - Precision: {} - Recall: {} - F1: {}')
